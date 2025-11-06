@@ -1,0 +1,46 @@
+:root {
+  /* font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale; */
+
+  --background: #312c51;
+  --foreground: #f0c38e;
+  --card: #48426d;
+  --card-foreground: #f0c38e;
+  --popover: #48426d;
+  --popover-foreground: #f0c38e;
+  --primary: #f1aa9b;
+  --primary-foreground: #312c51;
+  --secondary: #48426d;
+  --secondary-foreground: #f0c38e;
+  --muted: #48426d;
+  --muted-foreground: #f0c38e;
+  --accent: #f1aa9b;
+  --accent-foreground: #312c51;
+  --destructive: oklch(.577 .245 27.325);
+  --destructive-foreground: oklch(.985 0 0);
+  --border: #48426d;
+  --input: #48426d;
+  --ring: #f1aa9b; 
+}
+
+body{
+    margin: 0 !important;
+    padding: 0 !important;
+    color: var(--foreground);
+    font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #213547;
+    background-color: #ffffff;
+  }
+  a:hover {
+    color: #747bff;
+  }
+  button {
+    background-color: #f9f9f9;
+  }
+}
