@@ -6,6 +6,8 @@ export default function Receiving({ token }) {
   const [meta, setMeta] = useState(null);
   const [error, setError] = useState(null);
 
+  const API = import.meta.env.VITE_API_URL
+
   useEffect(() => {
     const formatBytes = (bytes) => {
       if (!bytes && bytes !== 0) return "";
@@ -26,7 +28,7 @@ export default function Receiving({ token }) {
     const load = async () => {
       try {
         setError(null);
-        const res = await fetch(`http://localhost:3001/api/shares/${token}`);
+        const res = await fetch(`${API}/api/shares/${token}`);
         if (!res.ok) {
           const txt = await res.text();
           throw new Error(txt || 'Failed to load');

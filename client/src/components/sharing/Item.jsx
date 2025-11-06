@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import styles from "./styles.module.css"
 
-export default function Item({ meta, shareOnClick, isLoading }) {
+export default function Item({ meta, shareOnClick, isLoading, onChangeClick }) {
     const [isPlaying, setIsPlaying] = useState(false);
     const [audioUrl, setAudioUrl] = useState(null);
     const audioRef = useRef();
@@ -70,7 +70,11 @@ export default function Item({ meta, shareOnClick, isLoading }) {
                     )}
                 </div>
                 
-                <div className={styles.btnChange} >
+                <div 
+                    className={styles.btnChange} 
+                    onClick={() => !isLoading && onChangeClick?.()}
+                    aria-disabled={isLoading}
+                >
                     <span>Change</span>
                 </div>
             </div>

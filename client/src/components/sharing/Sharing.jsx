@@ -2,14 +2,62 @@ import { useEffect, useRef, useState } from "react"
 import styles from "./styles.module.css"
 import Item from "./Item";
 import ShareLink from "./ShareLink";
+
 export default function Sharing() {
     const fileInputRef = useRef(null)
     const [selectedFile, setSelectedFile] = useState(null);
     const [meta, setMeta] = useState(null);
     const [shareUrl, setShareUrl] = useState("")
     const [isLoading, setIsLoading] = useState(false)
+    
+    const API = import.meta.env.VITE_API_URL
 
     const handleUploadClick = () => fileInputRef.current.click();
+
+    const handleChangeClick = () => {
+        if (isLoading) return;                  // tránh đổi khi đang upload
+        // KHÔNG xóa meta trước: nếu user bấm Cancel thì vẫn giữ file cũ
+        fileInputRef.current?.click();
+    };
+
+    const [isDragging, setIsDragging] = useState(false);
+
+    const onDragOver = (e) => {
+        e.preventDefault(); // cho phép drop
+        e.stopPropagation();
+        if (!isDragging) setIsDragging(true);
+    };
+
+    const onDragEnter = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(true);
+    };
+
+    const onDragLeave = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // chỉ reset khi rời khỏi vùng chính (tránh flicker khi hover icon/span)
+        if (e.currentTarget.contains(e.relatedTarget)) return;
+        setIsDragging(false);
+    };
+
+    const onDrop = async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+        const file = e.dataTransfer?.files?.[0];
+        if (!file) return;
+
+        // (tuỳ chọn) chỉ nhận audio
+        if (!file.type.startsWith("audio/")) {
+            alert("Please drop an audio file.");
+            return;
+        }
+
+        await processFile(file);
+    };
+    
 
     // useEffect(() => {
     //     if (meta) console.log("META UPDATED:", meta);
@@ -45,33 +93,38 @@ export default function Sharing() {
         audio.onerror = (e) => { cleanup(); reject(e); };
     });
 
+    const processFile = async (file) => {
+        if (!file) return;
+        try {
+            setSelectedFile(file);
+            const duration = await getAudioDuration(file);
+            setMeta({
+            fileName: file.name,
+            sizeBytes: file.size,
+            sizeText: formatBytes(file.size),
+            durationSec: duration,
+            durationText: formatDuration(duration),
+            type: file.type,
+            lastModified: file.lastModified,
+            file
+            });
+            setShareUrl(""); // đổi file → reset link cũ
+        } catch (err) {
+            console.error("Read audio metadata failed:", err);
+            setSelectedFile(null);
+            setMeta(null);
+        }
+    };
+
     const handleFileChange = async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
-        try {
-            setSelectedFile(file)
-            const duration = await getAudioDuration(file);
-            setMeta({
-                fileName: file.name,
-                sizeBytes: file.size,
-                sizeText: formatBytes(file.size),
-                durationSec: duration,
-                durationText: formatDuration(duration),
-                type: file.type,              // "audio/mpeg"
-                lastModified: file.lastModified,
-                file
-            });
-        } catch (err) {
-            console.error("Read audio metadata failed:", err);
-            // rollback nếu cần:
-            setSelectedFile(null);
-            setMeta(null);
-        } finally {
-        // Cho phép chọn lại cùng một file lần nữa
-            e.target.value = "";
-            console.log(meta)
-        }
+        await processFile(file);
+        // cho phép chọn lại cùng một file
+        if (e.target) e.target.value = "";
     };
+
+
 
     const shareOnClick = async () => {
         if (!selectedFile) return;
@@ -79,9 +132,9 @@ export default function Sharing() {
         setIsLoading(true)
 
         // 1) xin chữ ký upload
-        const sig = await fetch("http://localhost:3001/api/upload-signature", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        const sig = await fetch(`${API}/api/upload-signature`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
         }).then(r => r.json());
 
         console.log(sig)
@@ -109,11 +162,11 @@ export default function Sharing() {
         const uploadRes = await uploadResp.json();
 
         // 3) lưu metadata vào DB
-        const { fileId } = await fetch("http://localhost:3001/api/files", {
+        const { fileId } = await fetch(`${API}/api/files`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                publicId: uploadRes.public_id,               // đúng key
+                publicId: uploadRes.public_id,               
                 format: uploadRes.format,
                 bytes: uploadRes.bytes,
                 duration: uploadRes.duration,
@@ -123,7 +176,7 @@ export default function Sharing() {
         }).then(r => r.json());
 
         // 4) tạo share link
-        const { url } = await fetch("http://localhost:3001/api/share", {
+        const { url } = await fetch(`${API}/api/share`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ fileId, ttlSeconds: 3600, maxDownloads: 0 })
@@ -148,24 +201,35 @@ export default function Sharing() {
                     </div>
 
                     {!selectedFile && (
-                         <div className={styles.uploadField} onClick={handleUploadClick}>
+                        <div 
+                            className={styles.uploadField} 
+                            onClick={handleUploadClick}
+                            onDragEnter={onDragEnter}
+                            onDragOver={onDragOver}
+                            onDragLeave={onDragLeave}
+                            onDrop={onDrop}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && handleUploadClick()}
+                        >
                             <UploadIcon size={24} />
                             <span>Choose Audio File</span>
-                            <input 
-                                type="file" 
-                                ref={fileInputRef}
-                                accept="audio/mpeg, audio/mp3"
-                                onChange={handleFileChange}
-                                className={styles.hiddenInput}
-                            />
                         
                         </div>
                     )}
 
-                    {meta && <Item meta={meta} shareOnClick={shareOnClick} isLoading={isLoading} />}
+                    {meta && <Item meta={meta} shareOnClick={shareOnClick} isLoading={isLoading} onChangeClick={handleChangeClick} />}
                     
                     {shareUrl && <ShareLink link={shareUrl} />}
                     
+                    <input 
+                        type="file" 
+                        ref={fileInputRef}
+                        accept="audio/mpeg, audio/mp3"
+                        onChange={handleFileChange}
+                        className={styles.hiddenInput}
+                    />
+
                 </div>
             </div>
         </div>
